@@ -1,0 +1,5 @@
+{
+  "name": "Member Ledger System",
+  "description": "A comprehensive ledger system to track orders and payments handled by different members. It supports both ready-stock and custom orders, providing a master ledger for all transactions and individual ledgers for each member.",
+  "requestFramePermissions": []
+}
