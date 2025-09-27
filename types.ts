@@ -14,8 +14,10 @@ export enum PaymentOf {
 
 export enum OrderStatus {
   Pending = 'Pending',
+  InProgress = 'In Progress',
+  Ready = 'Ready',
   Completed = 'Completed',
-  Partial = 'Partial Payment',
+  Cancelled = 'Cancelled',
 }
 
 export enum TransactionType {
@@ -47,11 +49,13 @@ export interface Order {
   discount: number;
   finalAmount: number; // totalAmount - discount
   status: OrderStatus;
+  assignedMemberId: string;
   notes?: string;
   image?: string; // Base64 string for local image storage
   payments: Payment[];
   orderDate: string; // YYYY-MM-DD
   entryDate: string; // YYYY-MM-DD
+  statusDescription?: string;
 }
 
 export interface VendorPayment {
@@ -78,9 +82,11 @@ export interface LedgerEntry {
     amount: number;
     paymentMode: PaymentMode;
     memberName: string;
+    assignedMemberName?: string;
     orderDate?: string;
     paymentOf?: string;
     orderStatus?: OrderStatus;
+    statusDescription?: string;
     notes?: string;
     image?: string;
 }

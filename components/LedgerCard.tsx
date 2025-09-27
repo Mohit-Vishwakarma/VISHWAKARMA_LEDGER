@@ -1,12 +1,15 @@
 
 import React from 'react';
-import { LedgerEntry, TransactionType } from '../types';
+import { LedgerEntry, TransactionType, OrderStatus } from '../types';
 import Badge from './ui/Badge';
+import OrderStatusUpdater from './ui/OrderStatusUpdater';
 
 interface LedgerCardProps {
   entry: LedgerEntry;
   onViewImage: (image: string) => void;
   onDelete?: (entry: LedgerEntry) => void;
+  onUpdateOrderStatus?: (orderId: string, newStatus: OrderStatus) => void;
+  onViewOrderDetails?: (orderId: string) => void;
 }
 
 const TrashIcon = () => (
@@ -16,20 +19,24 @@ const TrashIcon = () => (
 );
 
 
-const LedgerCard: React.FC<LedgerCardProps> = ({ entry, onViewImage, onDelete }) => {
+const LedgerCard: React.FC<LedgerCardProps> = ({ entry, onViewImage, onDelete, onUpdateOrderStatus, onViewOrderDetails }) => {
   const isSale = entry.transactionType === TransactionType.Sale;
   const borderColor = isSale ? 'border-green-500' : 'border-red-500';
   const amountColor = isSale ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
   const amountSign = isSale ? '+' : '-';
 
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 border-l-4 ${borderColor} p-4 flex flex-col space-y-3`}>
+    <div className={`group bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 border-l-4 ${borderColor} p-4 flex flex-col space-y-3`}>
       {/* Card Header */}
       <div className="flex justify-between items-start">
-        <div className="pr-4 overflow-hidden">
+        <button
+          disabled={!isSale || !onViewOrderDetails}
+          onClick={() => isSale && onViewOrderDetails && onViewOrderDetails(entry.referenceId)}
+          className="pr-4 overflow-hidden text-left disabled:cursor-default"
+        >
           <p className="text-sm text-gray-500 dark:text-gray-400">Ref: {entry.referenceId}</p>
-          <p className="font-semibold text-gray-800 dark:text-white truncate">{entry.partyName}</p>
-        </div>
+          <p className={`font-semibold text-gray-800 dark:text-white truncate ${isSale && onViewOrderDetails ? 'group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors' : ''}`}>{entry.partyName}</p>
+        </button>
         <div className="flex items-center space-x-2 flex-shrink-0">
           <div className="text-right">
               <p className="text-sm text-gray-500 dark:text-gray-400">Entered: {entry.entryDate}</p>
@@ -48,13 +55,24 @@ const LedgerCard: React.FC<LedgerCardProps> = ({ entry, onViewImage, onDelete })
       </div>
 
       {/* Card Body */}
-      <p className="text-sm text-gray-600 dark:text-gray-300 flex-grow min-h-[40px]">{entry.description}</p>
+      <div className="flex-grow min-h-[40px]">
+        <p className="text-sm text-gray-600 dark:text-gray-300">{entry.description}</p>
+        {entry.statusDescription && (
+          <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold">Status Update:</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 italic">
+                  &ldquo;{entry.statusDescription}&rdquo;
+              </p>
+          </div>
+        )}
+      </div>
       
       {/* Amount and Member */}
       <div className="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-gray-700">
         <div>
             <p className={`text-xl font-bold ${amountColor}`}>{amountSign}₹{entry.amount.toLocaleString()}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">by {entry.memberName}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Handled by: {entry.memberName}</p>
+            {entry.assignedMemberName && <p className="text-xs text-gray-500 dark:text-gray-400">Assigned to: {entry.assignedMemberName}</p>}
         </div>
         {entry.image && (
           <button
@@ -70,7 +88,13 @@ const LedgerCard: React.FC<LedgerCardProps> = ({ entry, onViewImage, onDelete })
       <div className="flex flex-wrap gap-2 items-center">
         <Badge text={entry.paymentMode} colorScheme="blue" />
         {entry.paymentOf && <Badge text={entry.paymentOf} colorScheme="purple" />}
-        {entry.orderStatus && <Badge text={entry.orderStatus} colorScheme={entry.orderStatus === 'Completed' ? 'green' : entry.orderStatus === 'Partial Payment' ? 'yellow' : 'red'} />}
+        {entry.orderStatus && onUpdateOrderStatus && (
+          <OrderStatusUpdater 
+            currentStatus={entry.orderStatus} 
+            orderId={entry.referenceId}
+            onStatusChange={onUpdateOrderStatus}
+          />
+        )}
       </div>
     </div>
   );

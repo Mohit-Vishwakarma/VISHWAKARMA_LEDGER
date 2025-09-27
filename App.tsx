@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Order, VendorPayment, Member, LedgerEntry, TransactionType, OrderStatus } from './types';
 import { INITIAL_ORDERS, INITIAL_MEMBERS, INITIAL_VENDOR_PAYMENTS } from './constants';
@@ -7,6 +8,7 @@ import MemberAnalysis from './components/MemberAnalysis';
 import NewTransactionModal from './components/NewOrderModal';
 import ManageMembersModal from './components/ManageMembersModal';
 import ConfirmationModal from './components/ui/ConfirmationModal';
+import OrderDetailsModal from './components/ui/OrderDetailsModal';
 
 type View = 'master' | 'member' | 'analysis';
 
@@ -33,6 +35,7 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [transactionToDelete, setTransactionToDelete] = useState<LedgerEntry | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<string>(INITIAL_MEMBERS[0]?.id || '');
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   
   useEffect(() => {
     // If the selected member was deleted, select the first available member.
@@ -79,37 +82,54 @@ const App: React.FC = () => {
         setVendorPayments(prev => prev.filter(p => p.id !== transactionToDelete.transactionId));
     } else if (transactionToDelete.transactionType === TransactionType.Sale) {
         setOrders(prevOrders => {
-            const newOrders = [...prevOrders];
-            const orderIndex = newOrders.findIndex(o => o.id === transactionToDelete.referenceId);
-            
-            if (orderIndex > -1) {
-                const updatedOrder = { ...newOrders[orderIndex] };
-                updatedOrder.payments = updatedOrder.payments.filter(p => p.id !== transactionToDelete.transactionId);
-                
-                const totalPaid = updatedOrder.payments.reduce((acc, p) => acc + p.amount, 0);
-                
-                if (totalPaid >= updatedOrder.finalAmount) {
-                    updatedOrder.status = OrderStatus.Completed;
-                } else if (totalPaid > 0) {
-                    updatedOrder.status = OrderStatus.Partial;
-                } else {
-                    updatedOrder.status = OrderStatus.Pending;
+            return prevOrders.map(order => {
+                if (order.id === transactionToDelete.referenceId) {
+                    const updatedOrder = { ...order };
+                    updatedOrder.payments = updatedOrder.payments.filter(p => p.id !== transactionToDelete.transactionId);
+                    // Status is now manual, so we don't recalculate it here.
+                    return updatedOrder;
                 }
-
-                newOrders[orderIndex] = updatedOrder;
-                return newOrders;
-            }
-            return prevOrders;
+                return order;
+            }).filter(order => order.payments.length > 0 || order.status !== OrderStatus.Pending); // Optional: remove orders with no payments if they are still pending
         });
     }
 
     setTransactionToDelete(null);
   }, [transactionToDelete]);
+  
+  const handleUpdateOrderStatus = useCallback((orderId: string, newStatus: OrderStatus) => {
+    setOrders(prevOrders =>
+      prevOrders.map(order =>
+        order.id === orderId ? { ...order, status: newStatus } : order
+      )
+    );
+  }, []);
+  
+  const handleUpdateOrderStatusDescription = useCallback((orderId: string, description: string) => {
+    setOrders(prevOrders => 
+        prevOrders.map(order => 
+            order.id === orderId ? { ...order, statusDescription: description } : order
+        )
+    );
+    // Also update the viewing order so the change is reflected immediately in the modal
+    setViewingOrder(prev => prev ? { ...prev, statusDescription: description } : null);
+  }, []);
 
   const handleMemberAnalysisClick = (memberId: string) => {
     setSelectedMemberId(memberId);
     setActiveView('member');
   };
+
+  const handleViewOrderDetails = useCallback((orderId: string) => {
+    const orderToView = orders.find(o => o.id === orderId);
+    if (orderToView) {
+        setViewingOrder(orderToView);
+    }
+  }, [orders]);
+
+  const handleCloseOrderDetails = useCallback(() => {
+    setViewingOrder(null);
+  }, []);
 
   const NavButton: React.FC<{ view: View; label: string }> = ({ view, label }) => (
     <button
@@ -127,9 +147,9 @@ const App: React.FC = () => {
   const renderActiveView = () => {
     switch(activeView) {
       case 'master':
-        return <MasterLedger orders={orders} vendorPayments={vendorPayments} members={members} searchQuery={searchQuery} onDeleteRequest={handleDeleteRequest} />;
+        return <MasterLedger orders={orders} vendorPayments={vendorPayments} members={members} searchQuery={searchQuery} onDeleteRequest={handleDeleteRequest} onUpdateOrderStatus={handleUpdateOrderStatus} onViewOrderDetails={handleViewOrderDetails} />;
       case 'member':
-        return <MemberLedger orders={orders} vendorPayments={vendorPayments} members={members} onDeleteRequest={handleDeleteRequest} selectedMemberId={selectedMemberId} onMemberChange={setSelectedMemberId} />;
+        return <MemberLedger orders={orders} vendorPayments={vendorPayments} members={members} onDeleteRequest={handleDeleteRequest} selectedMemberId={selectedMemberId} onMemberChange={setSelectedMemberId} onUpdateOrderStatus={handleUpdateOrderStatus} onViewOrderDetails={handleViewOrderDetails} />;
       case 'analysis':
         return <MemberAnalysis orders={orders} vendorPayments={vendorPayments} members={members} onMemberCardClick={handleMemberAnalysisClick} />;
       default:
@@ -236,6 +256,13 @@ const App: React.FC = () => {
         setMembers={setMembers}
         orders={orders}
         vendorPayments={vendorPayments}
+      />
+      <OrderDetailsModal
+        isOpen={!!viewingOrder}
+        onClose={handleCloseOrderDetails}
+        order={viewingOrder}
+        onUpdateDescription={handleUpdateOrderStatusDescription}
+        members={members}
       />
     </div>
   );

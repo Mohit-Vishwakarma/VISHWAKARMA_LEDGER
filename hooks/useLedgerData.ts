@@ -1,4 +1,3 @@
-
 import { useMemo } from 'react';
 import { Order, VendorPayment, Member, LedgerEntry, TransactionType } from '../types';
 
@@ -21,9 +20,11 @@ export const useLedgerData = (orders: Order[], vendorPayments: VendorPayment[], 
           amount: payment.amount,
           paymentMode: payment.mode,
           memberName: memberMap.get(payment.memberId) || 'Unknown Member',
+          assignedMemberName: memberMap.get(order.assignedMemberId) || 'Unassigned',
           orderDate: order.orderDate,
           paymentOf: payment.paymentOf,
           orderStatus: order.status,
+          statusDescription: order.statusDescription,
           notes: order.notes,
           image: order.image,
         });
@@ -47,7 +48,11 @@ export const useLedgerData = (orders: Order[], vendorPayments: VendorPayment[], 
         });
     });
 
-    // Sort by most recent date first
-    return ledgerEntries.sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime());
+    // Sort by most recent date first. Prioritize orderDate for sales, otherwise use entryDate.
+    return ledgerEntries.sort((a, b) => {
+      const dateA = a.orderDate || a.entryDate;
+      const dateB = b.orderDate || b.entryDate;
+      return new Date(dateB).getTime() - new Date(dateA).getTime();
+    });
   }, [orders, vendorPayments, members]);
 };

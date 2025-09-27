@@ -33,6 +33,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   const [discount, setDiscount] = useState(0);
   const [orderPayments, setOrderPayments] = useState<Partial<Payment>[]>([{}]);
   const [orderDate, setOrderDate] = useState('');
+  const [assignedMemberId, setAssignedMemberId] = useState('');
   
   // Purchase State
   const [vendorName, setVendorName] = useState('');
@@ -56,6 +57,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     setDiscount(0);
     setOrderPayments([{}]);
     setOrderDate('');
+    setAssignedMemberId('');
     // Purchase
     setVendorName('');
     setPurchaseDescription('');
@@ -71,9 +73,13 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     if (isOpen) {
       resetForms();
       setOrderDate(new Date().toISOString().split('T')[0]);
+      if (members.length > 0) {
+        setAssignedMemberId(members[0].id);
+        setPurchaseMemberId(members[0].id);
+      }
       setFormType('sale');
     }
-  }, [isOpen, resetForms]);
+  }, [isOpen, resetForms, members]);
 
   // Sale form handlers
   const handleOrderPaymentChange = <T,>(index: number, field: keyof Payment, value: T) => {
@@ -112,12 +118,11 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   };
 
   const handleSaleSubmit = () => {
-     if (!customerName || !productDescription || finalAmount < 0 || !orderDate) {
-      alert('Please fill all required fields and ensure Final Amount is valid.');
+     if (!customerName || !productDescription || finalAmount < 0 || !orderDate || !assignedMemberId) {
+      alert('Please fill all required fields: Customer Name, Description, Order Date, and Assigned Member.');
       return;
     }
 
-    const orderStatus = totalPaid >= finalAmount ? OrderStatus.Completed : totalPaid > 0 ? OrderStatus.Partial : OrderStatus.Pending;
     const currentEntryDate = new Date().toISOString().split('T')[0];
 
     const newOrder: Order = {
@@ -127,7 +132,8 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       totalAmount,
       discount,
       finalAmount,
-      status: orderStatus,
+      status: OrderStatus.Pending, // New orders always start as Pending
+      assignedMemberId,
       notes,
       image: image || undefined,
       orderDate,
@@ -186,6 +192,13 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             <div>
                 <label htmlFor="discount" className="block text-xs font-medium text-gray-500 dark:text-gray-400">Discount</label>
                 <input id="discount" type="number" placeholder="e.g. 200" value={discount || ''} onChange={e => setDiscount(parseFloat(e.target.value) || 0)} className="form-input" />
+            </div>
+            <div className="md:col-span-2">
+                <label htmlFor="assignedMember" className="block text-xs font-medium text-gray-500 dark:text-gray-400">Assign To (Responsible Member)</label>
+                <select id="assignedMember" value={assignedMemberId} onChange={e => setAssignedMemberId(e.target.value)} className="form-select" required>
+                    <option value="">Select a member</option>
+                    {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
             </div>
         </div>
         <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/50 rounded-md text-center">

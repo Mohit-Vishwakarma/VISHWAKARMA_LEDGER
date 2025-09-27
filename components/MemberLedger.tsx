@@ -1,11 +1,12 @@
 
 import React, { useState, useMemo } from 'react';
-import { Order, Member, LedgerEntry, VendorPayment, TransactionType } from '../types';
+import { Order, Member, LedgerEntry, VendorPayment, TransactionType, OrderStatus } from '../types';
 import { useLedgerData } from '../hooks/useLedgerData';
 import { Table, Column } from './ui/Table';
 import Badge from './ui/Badge';
 import ViewSwitcher from './ui/ViewSwitcher';
 import LedgerCard from './LedgerCard';
+import OrderStatusUpdater from './ui/OrderStatusUpdater';
 
 interface MemberLedgerProps {
   orders: Order[];
@@ -14,6 +15,8 @@ interface MemberLedgerProps {
   onDeleteRequest: (entry: LedgerEntry) => void;
   selectedMemberId: string;
   onMemberChange: (memberId: string) => void;
+  onUpdateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
+  onViewOrderDetails: (orderId: string) => void;
 }
 
 const TrashIcon = () => (
@@ -22,7 +25,7 @@ const TrashIcon = () => (
     </svg>
 );
 
-const MemberLedger: React.FC<MemberLedgerProps> = ({ orders, vendorPayments, members, onDeleteRequest, selectedMemberId, onMemberChange }) => {
+const MemberLedger: React.FC<MemberLedgerProps> = ({ orders, vendorPayments, members, onDeleteRequest, selectedMemberId, onMemberChange, onUpdateOrderStatus, onViewOrderDetails }) => {
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const allLedgerData = useLedgerData(orders, vendorPayments, members);
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
@@ -40,11 +43,34 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ orders, vendorPayments, mem
       accessor: 'orderDate',
       render: (item) => item.orderDate || <span className="text-gray-400">-</span>
     },
-    { title: 'Ref ID', accessor: 'referenceId' },
+    { 
+        title: 'Ref ID', 
+        accessor: 'referenceId',
+        render: (item) => item.transactionType === TransactionType.Sale ? (
+            <button onClick={() => onViewOrderDetails(item.referenceId)} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                {item.referenceId}
+            </button>
+        ) : item.referenceId
+    },
     { title: 'Type', 
       accessor: 'transactionType',
       render: (item) => <Badge text={item.transactionType === TransactionType.Sale ? 'Received' : 'Paid'} colorScheme={item.transactionType === TransactionType.Sale ? 'green' : 'red'} />
     },
+    { title: 'Party', accessor: 'partyName' },
+    { 
+        title: 'Description', 
+        accessor: 'description',
+        render: (item) => (
+            <div>
+                <p>{item.description}</p>
+                {item.statusDescription && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic whitespace-pre-wrap max-w-xs">
+                        &ldquo;{item.statusDescription}&rdquo;
+                    </p>
+                )}
+            </div>
+        )
+     },
     { 
       title: 'Amount', 
       accessor: 'amount',
@@ -54,13 +80,18 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ orders, vendorPayments, mem
         </span>
       )
     },
+    { title: 'Assigned To', accessor: 'assignedMemberName', render: (item) => item.assignedMemberName || '-' },
     { 
-      title: 'Payment Mode', 
-      accessor: 'paymentMode',
-      render: (item) => <Badge text={item.paymentMode} colorScheme="blue" />
+      title: 'Status', 
+      accessor: 'orderStatus',
+      render: (item) => item.orderStatus ? (
+        <OrderStatusUpdater 
+          currentStatus={item.orderStatus} 
+          orderId={item.referenceId}
+          onStatusChange={onUpdateOrderStatus}
+        />
+      ) : '-'
     },
-    { title: 'Customer / Vendor', accessor: 'partyName' },
-    { title: 'Notes', accessor: 'notes' },
     {
       title: 'Attachment',
       accessor: 'image',
@@ -112,7 +143,14 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ orders, vendorPayments, mem
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-900">
           {filteredData.map(entry => (
-            <LedgerCard key={entry.transactionId} entry={entry} onViewImage={setViewingImage} onDelete={onDeleteRequest} />
+            <LedgerCard 
+              key={entry.transactionId} 
+              entry={entry} 
+              onViewImage={setViewingImage} 
+              onDelete={onDeleteRequest}
+              onUpdateOrderStatus={onUpdateOrderStatus}
+              onViewOrderDetails={onViewOrderDetails}
+            />
           ))}
         </div>
       );

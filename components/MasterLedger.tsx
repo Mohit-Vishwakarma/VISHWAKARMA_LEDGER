@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo } from 'react';
-import { Order, Member, VendorPayment, LedgerEntry, TransactionType, PaymentMode } from '../types';
+import { Order, Member, VendorPayment, LedgerEntry, TransactionType, PaymentMode, OrderStatus } from '../types';
 import { useLedgerData } from '../hooks/useLedgerData';
 import { Table, Column } from './ui/Table';
 import Badge from './ui/Badge';
 import ViewSwitcher from './ui/ViewSwitcher';
 import LedgerCard from './LedgerCard';
 import { exportToCsv } from '../utils';
+import OrderStatusUpdater from './ui/OrderStatusUpdater';
 
 
 interface MasterLedgerProps {
@@ -15,6 +16,8 @@ interface MasterLedgerProps {
   members: Member[];
   searchQuery: string;
   onDeleteRequest: (entry: LedgerEntry) => void;
+  onUpdateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
+  onViewOrderDetails: (orderId: string) => void;
 }
 
 const ExportIcon = () => (
@@ -36,7 +39,7 @@ const FilterIcon = () => (
 );
 
 
-const MasterLedger: React.FC<MasterLedgerProps> = ({ orders, vendorPayments, members, searchQuery, onDeleteRequest }) => {
+const MasterLedger: React.FC<MasterLedgerProps> = ({ orders, vendorPayments, members, searchQuery, onDeleteRequest, onUpdateOrderStatus, onViewOrderDetails }) => {
   const ledgerData = useLedgerData(orders, vendorPayments, members);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
@@ -102,9 +105,11 @@ const MasterLedger: React.FC<MasterLedgerProps> = ({ orders, vendorPayments, mem
       transactionType: entry.transactionType,
       partyName: entry.partyName,
       description: entry.description,
+      statusDescription: entry.statusDescription || '',
       amount: `${entry.transactionType === TransactionType.Sale ? '+' : '-'}${entry.amount}`,
       paymentMode: entry.paymentMode,
       memberName: entry.memberName,
+      assignedMemberName: entry.assignedMemberName || '',
       paymentOf: entry.paymentOf || '',
       orderStatus: entry.orderStatus || '',
       notes: entry.notes || '',
@@ -117,9 +122,11 @@ const MasterLedger: React.FC<MasterLedgerProps> = ({ orders, vendorPayments, mem
       { key: 'transactionType', label: 'Type' },
       { key: 'partyName', label: 'Party' },
       { key: 'description', label: 'Description' },
+      { key: 'statusDescription', label: 'Status Description' },
       { key: 'amount', label: 'Amount (INR)' },
       { key: 'paymentMode', label: 'Payment Mode' },
-      { key: 'memberName', label: 'Member' },
+      { key: 'memberName', label: 'Handled By' },
+      { key: 'assignedMemberName', label: 'Assigned To'},
       { key: 'paymentOf', label: 'Details' },
       { key: 'orderStatus', label: 'Status' },
       { key: 'notes', label: 'Notes' },
@@ -139,14 +146,35 @@ const MasterLedger: React.FC<MasterLedgerProps> = ({ orders, vendorPayments, mem
         accessor: 'orderDate',
         render: (item) => item.orderDate || <span className="text-gray-400">-</span>
     },
-    { title: 'Ref ID', accessor: 'referenceId' },
+    { 
+        title: 'Ref ID', 
+        accessor: 'referenceId',
+        render: (item) => item.transactionType === TransactionType.Sale ? (
+            <button onClick={() => onViewOrderDetails(item.referenceId)} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                {item.referenceId}
+            </button>
+        ) : item.referenceId
+    },
     { 
       title: 'Type',
       accessor: 'transactionType',
       render: (item) => <Badge text={item.transactionType} colorScheme={item.transactionType === TransactionType.Sale ? 'green' : 'red'} />
     },
     { title: 'Party', accessor: 'partyName' },
-    { title: 'Description', accessor: 'description' },
+    { 
+        title: 'Description', 
+        accessor: 'description',
+        render: (item) => (
+            <div>
+                <p>{item.description}</p>
+                {item.statusDescription && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic whitespace-pre-wrap max-w-xs">
+                        &ldquo;{item.statusDescription}&rdquo;
+                    </p>
+                )}
+            </div>
+        )
+     },
     { 
       title: 'Amount', 
       accessor: 'amount',
@@ -156,21 +184,18 @@ const MasterLedger: React.FC<MasterLedgerProps> = ({ orders, vendorPayments, mem
         </span>
       )
     },
-    { 
-      title: 'Payment Mode', 
-      accessor: 'paymentMode',
-      render: (item) => <Badge text={item.paymentMode} colorScheme="blue" />
-    },
-    { title: 'Member', accessor: 'memberName' },
-    { 
-      title: 'Details', 
-      accessor: 'paymentOf',
-      render: (item) => item.paymentOf ? <Badge text={item.paymentOf} colorScheme="purple" /> : '-'
-    },
+    { title: 'Handled By', accessor: 'memberName' },
+    { title: 'Assigned To', accessor: 'assignedMemberName', render: (item) => item.assignedMemberName || '-' },
     { 
       title: 'Status', 
       accessor: 'orderStatus',
-      render: (item) => item.orderStatus ? <Badge text={item.orderStatus} colorScheme={item.orderStatus === 'Completed' ? 'green' : item.orderStatus === 'Partial Payment' ? 'yellow' : 'red'} /> : '-'
+      render: (item) => item.orderStatus ? (
+        <OrderStatusUpdater 
+          currentStatus={item.orderStatus} 
+          orderId={item.referenceId}
+          onStatusChange={onUpdateOrderStatus}
+        />
+      ) : '-'
     },
     {
       title: 'Attachment',
@@ -220,7 +245,14 @@ const MasterLedger: React.FC<MasterLedgerProps> = ({ orders, vendorPayments, mem
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-900">
           {filteredLedgerData.map(entry => (
-            <LedgerCard key={entry.transactionId} entry={entry} onViewImage={setViewingImage} onDelete={onDeleteRequest} />
+            <LedgerCard 
+                key={entry.transactionId} 
+                entry={entry} 
+                onViewImage={setViewingImage} 
+                onDelete={onDeleteRequest}
+                onUpdateOrderStatus={onUpdateOrderStatus}
+                onViewOrderDetails={onViewOrderDetails}
+            />
           ))}
         </div>
       );
