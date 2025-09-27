@@ -1,14 +1,27 @@
-
-import React, { useState, useCallback } from 'react';
-import { Order, VendorPayment, Member } from './types';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Order, VendorPayment, Member, LedgerEntry, TransactionType, OrderStatus } from './types';
 import { INITIAL_ORDERS, INITIAL_MEMBERS, INITIAL_VENDOR_PAYMENTS } from './constants';
 import MasterLedger from './components/MasterLedger';
 import MemberLedger from './components/MemberLedger';
 import MemberAnalysis from './components/MemberAnalysis';
 import NewTransactionModal from './components/NewOrderModal';
 import ManageMembersModal from './components/ManageMembersModal';
+import ConfirmationModal from './components/ui/ConfirmationModal';
 
 type View = 'master' | 'member' | 'analysis';
+
+const SearchIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+);
+
+const ClearIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+);
+
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<View>('master');
@@ -17,7 +30,29 @@ const App: React.FC = () => {
   const [members, setMembers] = useState<Member[]>(INITIAL_MEMBERS);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [transactionToDelete, setTransactionToDelete] = useState<LedgerEntry | null>(null);
+  const [selectedMemberId, setSelectedMemberId] = useState<string>(INITIAL_MEMBERS[0]?.id || '');
+  
+  useEffect(() => {
+    // If the selected member was deleted, select the first available member.
+    if (!members.find(m => m.id === selectedMemberId) && members.length > 0) {
+        setSelectedMemberId(members[0].id);
+    } else if (members.length === 0) {
+        setSelectedMemberId('');
+    }
+  }, [members, selectedMemberId]);
 
+
+  const handleViewChange = (view: View) => {
+    if (view !== 'master') {
+      setSearchQuery('');
+    }
+    if (view === 'member' && !selectedMemberId && members.length > 0) {
+        setSelectedMemberId(members[0].id);
+    }
+    setActiveView(view);
+  };
 
   const addOrder = useCallback((newOrder: Order) => {
     setOrders(prevOrders => [newOrder, ...prevOrders]);
@@ -29,9 +64,56 @@ const App: React.FC = () => {
     setIsTransactionModalOpen(false);
   }, []);
   
+  const handleDeleteRequest = useCallback((entry: LedgerEntry) => {
+    setTransactionToDelete(entry);
+  }, []);
+
+  const cancelDelete = useCallback(() => {
+    setTransactionToDelete(null);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (!transactionToDelete) return;
+
+    if (transactionToDelete.transactionType === TransactionType.Purchase) {
+        setVendorPayments(prev => prev.filter(p => p.id !== transactionToDelete.transactionId));
+    } else if (transactionToDelete.transactionType === TransactionType.Sale) {
+        setOrders(prevOrders => {
+            const newOrders = [...prevOrders];
+            const orderIndex = newOrders.findIndex(o => o.id === transactionToDelete.referenceId);
+            
+            if (orderIndex > -1) {
+                const updatedOrder = { ...newOrders[orderIndex] };
+                updatedOrder.payments = updatedOrder.payments.filter(p => p.id !== transactionToDelete.transactionId);
+                
+                const totalPaid = updatedOrder.payments.reduce((acc, p) => acc + p.amount, 0);
+                
+                if (totalPaid >= updatedOrder.finalAmount) {
+                    updatedOrder.status = OrderStatus.Completed;
+                } else if (totalPaid > 0) {
+                    updatedOrder.status = OrderStatus.Partial;
+                } else {
+                    updatedOrder.status = OrderStatus.Pending;
+                }
+
+                newOrders[orderIndex] = updatedOrder;
+                return newOrders;
+            }
+            return prevOrders;
+        });
+    }
+
+    setTransactionToDelete(null);
+  }, [transactionToDelete]);
+
+  const handleMemberAnalysisClick = (memberId: string) => {
+    setSelectedMemberId(memberId);
+    setActiveView('member');
+  };
+
   const NavButton: React.FC<{ view: View; label: string }> = ({ view, label }) => (
     <button
-      onClick={() => setActiveView(view)}
+      onClick={() => handleViewChange(view)}
       className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
         activeView === view
           ? 'bg-blue-600 text-white'
@@ -45,11 +127,11 @@ const App: React.FC = () => {
   const renderActiveView = () => {
     switch(activeView) {
       case 'master':
-        return <MasterLedger orders={orders} vendorPayments={vendorPayments} members={members} />;
+        return <MasterLedger orders={orders} vendorPayments={vendorPayments} members={members} searchQuery={searchQuery} onDeleteRequest={handleDeleteRequest} />;
       case 'member':
-        return <MemberLedger orders={orders} vendorPayments={vendorPayments} members={members} />;
+        return <MemberLedger orders={orders} vendorPayments={vendorPayments} members={members} onDeleteRequest={handleDeleteRequest} selectedMemberId={selectedMemberId} onMemberChange={setSelectedMemberId} />;
       case 'analysis':
-        return <MemberAnalysis orders={orders} vendorPayments={vendorPayments} members={members} />;
+        return <MemberAnalysis orders={orders} vendorPayments={vendorPayments} members={members} onMemberCardClick={handleMemberAnalysisClick} />;
       default:
         return null;
     }
@@ -59,16 +141,44 @@ const App: React.FC = () => {
     <div className="min-h-screen text-gray-900 dark:text-gray-100">
       <header className="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-10">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-              Ledger System
-            </h1>
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-wrap items-center justify-between py-3">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+                Jay Shree Vishwakarma Timber Traders
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Member Ledger System</p>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4 mt-2 w-full sm:w-auto sm:mt-0">
               <div className="flex items-center bg-gray-200 dark:bg-gray-700 p-1 rounded-lg">
                 <NavButton view="master" label="Master Ledger" />
                 <NavButton view="member" label="Member Ledger" />
                 <NavButton view="analysis" label="Member Analysis" />
               </div>
+              
+              {activeView === 'master' && (
+                  <div className="relative flex-grow sm:flex-grow-0 sm:w-80">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <SearchIcon />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Search party, description, ref ID..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="block w-full pl-10 pr-10 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg leading-5 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent sm:text-sm transition-all duration-300 ease-in-out"
+                    />
+                    {searchQuery && (
+                      <div className="absolute inset-y-0 right-0 pr-2 flex items-center">
+                        <button 
+                          onClick={() => setSearchQuery('')} 
+                          className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800" 
+                          aria-label="Clear search">
+                          <ClearIcon />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+              )}
                <button
                 onClick={() => setIsMembersModalOpen(true)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:text-gray-200 dark:bg-gray-600 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
@@ -90,6 +200,26 @@ const App: React.FC = () => {
         {renderActiveView()}
       </main>
 
+      <ConfirmationModal
+        isOpen={!!transactionToDelete}
+        onClose={cancelDelete}
+        onConfirm={confirmDelete}
+        title="Confirm Transaction Deletion"
+        message={
+          <>
+            <p>Are you sure you want to delete this transaction record? This action cannot be undone.</p>
+            {transactionToDelete && (
+               <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600">
+                  <p className="font-semibold text-gray-800 dark:text-gray-100">{transactionToDelete.description}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    {transactionToDelete.partyName} - <span className={transactionToDelete.transactionType === TransactionType.Sale ? 'text-green-600' : 'text-red-500'}>₹{transactionToDelete.amount.toLocaleString()}</span>
+                  </p>
+               </div>
+            )}
+          </>
+        }
+      />
+
       <NewTransactionModal 
         isOpen={isTransactionModalOpen} 
         onClose={() => setIsTransactionModalOpen(false)} 
@@ -104,6 +234,8 @@ const App: React.FC = () => {
         onClose={() => setIsMembersModalOpen(false)}
         members={members}
         setMembers={setMembers}
+        orders={orders}
+        vendorPayments={vendorPayments}
       />
     </div>
   );

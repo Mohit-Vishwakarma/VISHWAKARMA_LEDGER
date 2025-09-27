@@ -16,10 +16,11 @@ export const INITIAL_ORDERS: Order[] = [
     discount: 200,
     finalAmount: 4800,
     status: OrderStatus.Completed,
-    date: '2024-07-20',
+    orderDate: '2024-07-19',
+    entryDate: '2024-07-20',
     notes: 'Urgent delivery',
     payments: [
-      { id: 'pay-1', amount: 4800, mode: PaymentMode.Online, memberId: 'mem-1', paymentOf: PaymentOf.Final, date: '2024-07-20' }
+      { id: 'pay-1', amount: 4800, mode: PaymentMode.Online, memberId: 'mem-1', paymentOf: PaymentOf.Final, entryDate: '2024-07-20' }
     ]
   },
   {
@@ -30,10 +31,11 @@ export const INITIAL_ORDERS: Order[] = [
     discount: 0,
     finalAmount: 15000,
     status: OrderStatus.Partial,
-    date: '2024-07-21',
+    orderDate: '2024-07-20',
+    entryDate: '2024-07-21',
     payments: [
-      { id: 'pay-2', amount: 5000, mode: PaymentMode.Cash, memberId: 'mem-2', paymentOf: PaymentOf.Advance, date: '2024-07-21' },
-      { id: 'pay-3', amount: 5000, mode: PaymentMode.Online, memberId: 'mem-1', paymentOf: PaymentOf.Partial, date: '2024-07-25' }
+      { id: 'pay-2', amount: 5000, mode: PaymentMode.Cash, memberId: 'mem-2', paymentOf: PaymentOf.Advance, entryDate: '2024-07-21' },
+      { id: 'pay-3', amount: 5000, mode: PaymentMode.Online, memberId: 'mem-1', paymentOf: PaymentOf.Partial, entryDate: '2024-07-25' }
     ]
   },
   {
@@ -44,10 +46,11 @@ export const INITIAL_ORDERS: Order[] = [
     discount: 500,
     finalAmount: 7000,
     status: OrderStatus.Completed,
-    date: '2024-07-22',
+    orderDate: '2024-07-22',
+    entryDate: '2024-07-22',
     notes: 'Gift wrapped',
     payments: [
-      { id: 'pay-4', amount: 7000, mode: PaymentMode.Online, memberId: 'mem-3', paymentOf: PaymentOf.Final, date: '2024-07-22' }
+      { id: 'pay-4', amount: 7000, mode: PaymentMode.Online, memberId: 'mem-3', paymentOf: PaymentOf.Final, entryDate: '2024-07-22' }
     ]
   },
   {
@@ -58,10 +61,11 @@ export const INITIAL_ORDERS: Order[] = [
     discount: 2000,
     finalAmount: 48000,
     status: OrderStatus.Completed,
-    date: '2024-07-15',
+    orderDate: '2024-07-14',
+    entryDate: '2024-07-15',
     payments: [
-      { id: 'pay-5', amount: 20000, mode: PaymentMode.Online, memberId: 'mem-2', paymentOf: PaymentOf.Advance, date: '2024-07-15' },
-      { id: 'pay-6', amount: 28000, mode: PaymentMode.Cash, memberId: 'mem-2', paymentOf: PaymentOf.Final, date: '2024-07-28' }
+      { id: 'pay-5', amount: 20000, mode: PaymentMode.Online, memberId: 'mem-2', paymentOf: PaymentOf.Advance, entryDate: '2024-07-15' },
+      { id: 'pay-6', amount: 28000, mode: PaymentMode.Cash, memberId: 'mem-2', paymentOf: PaymentOf.Final, entryDate: '2024-07-28' }
     ]
   }
 ];
@@ -74,7 +78,7 @@ export const INITIAL_VENDOR_PAYMENTS: VendorPayment[] = [
     amount: 12000,
     mode: PaymentMode.Cheque,
     memberId: 'mem-1',
-    date: '2024-07-18',
+    entryDate: '2024-07-18',
     notes: 'Cheque #12345'
   },
   {
@@ -84,6 +88,6 @@ export const INITIAL_VENDOR_PAYMENTS: VendorPayment[] = [
     amount: 3000,
     mode: PaymentMode.Cash,
     memberId: 'mem-2',
-    date: '2024-07-23',
+    entryDate: '2024-07-23',
   }
 ];

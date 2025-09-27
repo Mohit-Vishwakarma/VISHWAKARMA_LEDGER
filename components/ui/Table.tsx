@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export interface Column<T> {
@@ -16,7 +15,7 @@ export function Table<T extends { transactionId?: string, orderId?: string; id?:
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-        <thead className="bg-gray-50 dark:bg-gray-700">
+        <thead className="bg-gray-50 dark:bg-gray-700/50">
           <tr>
             {columns.map((col) => (
               <th
@@ -30,26 +29,23 @@ export function Table<T extends { transactionId?: string, orderId?: string; id?:
           </tr>
         </thead>
         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-          {data.length === 0 ? (
-            <tr>
-              <td colSpan={columns.length} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                No data available
-              </td>
-            </tr>
-          ) : (
-            data.map((item, index) => (
-              <tr key={item.transactionId || (item.orderId ? `${item.orderId}-${index}`: item.id ? `${item.id}-${index}`: index)} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                {columns.map((col) => (
-                  <td
-                    key={`${String(col.accessor)}-${index}`}
-                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300"
-                  >
+          {data.map((item, index) => (
+            <tr 
+              key={item.transactionId || (item.orderId ? `${item.orderId}-${index}`: item.id ? `${item.id}-${index}`: index)} 
+              className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+            >
+              {columns.map((col, colIndex) => (
+                <td
+                  key={`${String(col.accessor)}-${index}`}
+                  className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200"
+                >
+                  <div className="flex items-center">
                     {col.render ? col.render(item) : (item[col.accessor] as React.ReactNode)}
-                  </td>
-                ))}
-              </tr>
-            ))
-          )}
+                  </div>
+                </td>
+              ))}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

@@ -34,7 +34,7 @@ export interface Payment {
   mode: PaymentMode;
   memberId: string;
   paymentOf: string; // Allow custom payment types
-  date: string; // YYYY-MM-DD
+  entryDate: string; // YYYY-MM-DD
 }
 
 export interface Order {
@@ -50,7 +50,8 @@ export interface Order {
   notes?: string;
   image?: string; // Base64 string for local image storage
   payments: Payment[];
-  date: string; // YYYY-MM-DD
+  orderDate: string; // YYYY-MM-DD
+  entryDate: string; // YYYY-MM-DD
 }
 
 export interface VendorPayment {
@@ -60,7 +61,7 @@ export interface VendorPayment {
   amount: number;
   mode: PaymentMode;
   memberId: string;
-  date: string; // YYYY-MM-DD
+  entryDate: string; // YYYY-MM-DD
   notes?: string;
   image?: string; // Base64 string for local image storage
 }
@@ -68,7 +69,7 @@ export interface VendorPayment {
 
 // Flattened structure for table display
 export interface LedgerEntry {
-    date: string;
+    entryDate: string;
     transactionId: string; // a unique id for this transaction row
     referenceId: string; // the orderId or vendor payment id
     partyName: string; // customer or vendor
@@ -77,6 +78,7 @@ export interface LedgerEntry {
     amount: number;
     paymentMode: PaymentMode;
     memberName: string;
+    orderDate?: string;
     paymentOf?: string;
     orderStatus?: OrderStatus;
     notes?: string;

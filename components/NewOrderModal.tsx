@@ -32,6 +32,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   const [totalAmount, setTotalAmount] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [orderPayments, setOrderPayments] = useState<Partial<Payment>[]>([{}]);
+  const [orderDate, setOrderDate] = useState('');
   
   // Purchase State
   const [vendorName, setVendorName] = useState('');
@@ -54,6 +55,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     setTotalAmount(0);
     setDiscount(0);
     setOrderPayments([{}]);
+    setOrderDate('');
     // Purchase
     setVendorName('');
     setPurchaseDescription('');
@@ -68,6 +70,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       resetForms();
+      setOrderDate(new Date().toISOString().split('T')[0]);
       setFormType('sale');
     }
   }, [isOpen, resetForms]);
@@ -109,12 +112,13 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   };
 
   const handleSaleSubmit = () => {
-     if (!customerName || !productDescription || finalAmount < 0) {
+     if (!customerName || !productDescription || finalAmount < 0 || !orderDate) {
       alert('Please fill all required fields and ensure Final Amount is valid.');
       return;
     }
 
     const orderStatus = totalPaid >= finalAmount ? OrderStatus.Completed : totalPaid > 0 ? OrderStatus.Partial : OrderStatus.Pending;
+    const currentEntryDate = new Date().toISOString().split('T')[0];
 
     const newOrder: Order = {
       id: nextOrderId,
@@ -126,13 +130,14 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       status: orderStatus,
       notes,
       image: image || undefined,
-      date: new Date().toISOString().split('T')[0],
+      orderDate,
+      entryDate: currentEntryDate,
       payments: orderPayments
         .filter(p => p.amount && p.amount > 0 && p.memberId && p.mode && p.paymentOf)
         .map((p, index) => ({
           ...p,
           id: `pay-${Date.now()}-${index}`,
-          date: p.date || new Date().toISOString().split('T')[0],
+          entryDate: currentEntryDate,
         } as Payment)),
     };
     onAddOrder(newOrder);
@@ -150,7 +155,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       amount: purchaseAmount,
       mode: purchaseMode,
       memberId: purchaseMemberId,
-      date: new Date().toISOString().split('T')[0],
+      entryDate: new Date().toISOString().split('T')[0],
       notes,
       image: image || undefined,
     }
@@ -162,10 +167,26 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       <div>
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Order Details</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input type="text" placeholder="Customer Name" value={customerName} onChange={e => setCustomerName(e.target.value)} className="form-input" required />
-          <input type="text" placeholder="Product Description" value={productDescription} onChange={e => setProductDescription(e.target.value)} className="form-input" required />
-          <input type="number" placeholder="Total Amount" value={totalAmount || ''} onChange={e => setTotalAmount(parseFloat(e.target.value) || 0)} className="form-input" />
-          <input type="number" placeholder="Discount" value={discount || ''} onChange={e => setDiscount(parseFloat(e.target.value) || 0)} className="form-input" />
+            <div>
+                <label htmlFor="customerName" className="block text-xs font-medium text-gray-500 dark:text-gray-400">Customer Name</label>
+                <input id="customerName" type="text" placeholder="e.g. John Doe" value={customerName} onChange={e => setCustomerName(e.target.value)} className="form-input" required />
+            </div>
+            <div>
+                <label htmlFor="orderDate" className="block text-xs font-medium text-gray-500 dark:text-gray-400">Order Date</label>
+                <input id="orderDate" type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)} className="form-input" required />
+            </div>
+            <div className="md:col-span-2">
+                <label htmlFor="productDesc" className="block text-xs font-medium text-gray-500 dark:text-gray-400">Product Description</label>
+                <input id="productDesc" type="text" placeholder="e.g. 10x T-shirts" value={productDescription} onChange={e => setProductDescription(e.target.value)} className="form-input" required />
+            </div>
+            <div>
+                <label htmlFor="totalAmount" className="block text-xs font-medium text-gray-500 dark:text-gray-400">Total Amount</label>
+                <input id="totalAmount" type="number" placeholder="e.g. 5000" value={totalAmount || ''} onChange={e => setTotalAmount(parseFloat(e.target.value) || 0)} className="form-input" />
+            </div>
+            <div>
+                <label htmlFor="discount" className="block text-xs font-medium text-gray-500 dark:text-gray-400">Discount</label>
+                <input id="discount" type="number" placeholder="e.g. 200" value={discount || ''} onChange={e => setDiscount(parseFloat(e.target.value) || 0)} className="form-input" />
+            </div>
         </div>
         <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/50 rounded-md text-center">
           <span className="font-semibold text-blue-800 dark:text-blue-200">Final Amount: ₹{finalAmount.toLocaleString()}</span>
@@ -177,23 +198,23 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           <button type="button" onClick={addOrderPaymentRow} className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">+ Add Payment</button>
         </div>
         {orderPayments.map((payment, index) => (
-          <div key={index} className="grid grid-cols-12 gap-4 items-center mb-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-            <input type="number" placeholder="Amount" value={payment.amount || ''} onChange={e => handleOrderPaymentChange(index, 'amount', parseFloat(e.target.value))} className="col-span-3 form-input" required/>
-            <select value={payment.mode || ''} onChange={e => handleOrderPaymentChange(index, 'mode', e.target.value as PaymentMode)} className="col-span-2 form-select" required>
+          <div key={index} className="grid grid-cols-4 sm:grid-cols-12 gap-2 sm:gap-4 items-center mb-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+            <input type="number" placeholder="Amount" value={payment.amount || ''} onChange={e => handleOrderPaymentChange(index, 'amount', parseFloat(e.target.value))} className="col-span-4 sm:col-span-3 form-input" required/>
+            <select value={payment.mode || ''} onChange={e => handleOrderPaymentChange(index, 'mode', e.target.value as PaymentMode)} className="col-span-2 sm:col-span-2 form-select" required>
               <option value="">Mode</option>
               {Object.values(PaymentMode).map(m => <option key={m} value={m}>{m}</option>)}
             </select>
-            <select value={payment.memberId || ''} onChange={e => handleOrderPaymentChange(index, 'memberId', e.target.value)} className="col-span-3 form-select" required>
+            <select value={payment.memberId || ''} onChange={e => handleOrderPaymentChange(index, 'memberId', e.target.value)} className="col-span-2 sm:col-span-3 form-select" required>
               <option value="">Member</option>
               {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
-            <div className="col-span-3">
+            <div className="col-span-3 sm:col-span-3">
               <input type="text" list="payment-types" placeholder="Type" value={payment.paymentOf || ''} onChange={e => handleOrderPaymentChange(index, 'paymentOf', e.target.value)} className="form-input" required />
               <datalist id="payment-types">
                 {Object.values(PaymentOf).map(p => <option key={p} value={p} />)}
               </datalist>
             </div>
-            <div className="col-span-1 flex justify-end">
+            <div className="col-span-1 sm:col-span-1 flex justify-end">
               {orderPayments.length > 1 && <button type="button" onClick={() => removeOrderPaymentRow(index)} className="text-red-500 hover:text-red-700 font-bold text-xl">&times;</button>}
             </div>
           </div>

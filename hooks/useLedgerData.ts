@@ -12,7 +12,7 @@ export const useLedgerData = (orders: Order[], vendorPayments: VendorPayment[], 
     orders.forEach(order => {
       order.payments.forEach(payment => {
         ledgerEntries.push({
-          date: payment.date,
+          entryDate: payment.entryDate,
           transactionId: payment.id,
           referenceId: order.id,
           partyName: order.customerName,
@@ -21,6 +21,7 @@ export const useLedgerData = (orders: Order[], vendorPayments: VendorPayment[], 
           amount: payment.amount,
           paymentMode: payment.mode,
           memberName: memberMap.get(payment.memberId) || 'Unknown Member',
+          orderDate: order.orderDate,
           paymentOf: payment.paymentOf,
           orderStatus: order.status,
           notes: order.notes,
@@ -32,7 +33,7 @@ export const useLedgerData = (orders: Order[], vendorPayments: VendorPayment[], 
     // Process Purchases from Vendor Payments
     vendorPayments.forEach(payment => {
         ledgerEntries.push({
-            date: payment.date,
+            entryDate: payment.entryDate,
             transactionId: payment.id,
             referenceId: payment.id,
             partyName: payment.vendorName,
@@ -47,6 +48,6 @@ export const useLedgerData = (orders: Order[], vendorPayments: VendorPayment[], 
     });
 
     // Sort by most recent date first
-    return ledgerEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return ledgerEntries.sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime());
   }, [orders, vendorPayments, members]);
 };
